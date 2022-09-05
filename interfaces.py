@@ -22,9 +22,10 @@ def retrieve_json_for_netbox_fields():
         bond_file = open("/sys/class/net/bonding_masters",'r')
         bonds = bond_file.readlines()
         bond_file.close()
-        bonds_name = bonds.split(" ")
+        for bond in bonds[0].split(" "):
+            bonds_name.append(bond.strip())
     cmd = subprocess.Popen(["hostname", "-s"], stdout=subprocess.PIPE)
-    hostname = cmd.stdout.read().rstrip()
+    hostname = cmd.stdout.read().strip()
     with open("interfaces.json",'r') as interface_json_file:
         interfaces_in_json = json.load(interface_json_file)
     interfaces = []
