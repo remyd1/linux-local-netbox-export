@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from asyncio import BoundedSemaphore
 import subprocess
 import json
 import csv
 from os.path import exists
 import re
 
-#IFACE_TYPE = {"ether": "1000base-t", }
+IFACE_TYPE = {"ether": "1000base-t"}
 
 
 def retrieve_json_for_netbox_fields():
@@ -25,7 +24,7 @@ def retrieve_json_for_netbox_fields():
         for bond in bonds[0].split(" "):
             bonds_name.append(bond.strip())
     cmd = subprocess.Popen(["hostname", "-s"], stdout=subprocess.PIPE)
-    hostname = cmd.stdout.read().strip()
+    hostname = cmd.stdout.read().strip().decode("utf-8")
     with open("interfaces.json",'r') as interface_json_file:
         interfaces_in_json = json.load(interface_json_file)
     interfaces = []
@@ -50,9 +49,9 @@ def retrieve_json_for_netbox_fields():
         for bond_name in bonds_name:
             if re.search(bond_name, current_interface['ifname']):
                 cur_iface["type"] = "lga"
-            bond_found = True
-        if not bond_found:
-            cur_iface["type"] = current_interface['link_type']
+                bond_found = True
+        if bond_found == False:
+            cur_iface["type"] = IFACE_TYPE[current_interface['link_type']]
         cur_iface["mgmt_only"] = "False"
         cur_iface["mtu"] = current_interface['mtu']
         cur_iface["mode"] = ""
