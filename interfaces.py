@@ -32,8 +32,9 @@ def retrieve_json_for_netbox_fields():
         # loopback interface
         if current_interface['link_type'] == "loopback":
             continue
+        # removed "parent" from following dict. It does not seem to work...
         cur_iface = {"name": "", "device": hostname, "label": "", \
-                     "parent": "", "bridge": "", "lag": "", "enabled": "", \
+                     "bridge": "", "lag": "", "enabled": "", \
                      "type": "", "mgmt_only": "", "mtu": "", "mode": "", \
                      "mac_address": "", "wwn": "", "rf_role": "", \
                      "rf_channel": "", "rf_channel_frequency": "", \
@@ -42,8 +43,8 @@ def retrieve_json_for_netbox_fields():
         cur_iface["name"] = current_interface['ifname']
         if "label" in current_interface['addr_info']:
             cur_iface["label"] = current_interface['addr_info']["label"]
-        if "master" in current_interface:
-            cur_iface["parent"] = current_interface["master"]
+        #if "master" in current_interface:
+        #    cur_iface["parent"] = current_interface["master"]
         if current_interface['operstate'] == "UP":
             cur_iface["enabled"] = "True"
         else:
@@ -84,6 +85,9 @@ def retrieve_json_for_netbox_fields():
     return interfaces
 
 def write_to_csv(json_data):
+    """
+    Basic function to create csv file with headers
+    """
     data_file = open('interfaces.csv', 'w')
     csv_writer = csv.writer(data_file)
     count = 0
