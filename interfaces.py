@@ -32,13 +32,13 @@ def retrieve_json_for_netbox_fields():
         # loopback interface
         if current_interface['link_type'] == "loopback":
             continue
-        cur_iface = {"name": "", "device": hostname, "label": "", "enabled": "", \
+        cur_iface = {"name": "", "device": hostname, "label": "", \
+                     "parent": "", "bridge": "", "lag": "", "enabled": "", \
                      "type": "", "mgmt_only": "", "mtu": "", "mode": "", \
                      "mac_address": "", "wwn": "", "rf_role": "", \
                      "rf_channel": "", "rf_channel_frequency": "", \
                      "rf_channel_width": "", "tx_power": "", \
                      "description": "", "mark_connected": ""}
-        
         cur_iface["name"] = current_interface['ifname']
         cur_iface["label"] = ""
         if current_interface['operstate'] == "UP":
@@ -48,10 +48,19 @@ def retrieve_json_for_netbox_fields():
         bond_found = False
         for bond_name in bonds_name:
             if re.search(bond_name, current_interface['ifname']):
-                cur_iface["type"] = "lga"
+                cur_iface["type"] = "lag"
                 bond_found = True
-        if bond_found == False:
+        if not bond_found:
             cur_iface["type"] = IFACE_TYPE[current_interface['link_type']]
+        if "linkinfo" in current_interface:
+            if "info_kind" in current_interface["linkinfo"]:
+                kind = current_interface["linkinfo"]["info_kind"]
+                if kind == "bridge":
+                    cur_iface["type"] = "bridge"
+                elif kind == "openvswitch":
+                    cur_iface["type"] = "virtual"
+        if "master" in current_interface:
+            cur_iface["parent"] = current_interface["master"]
         cur_iface["mgmt_only"] = "False"
         cur_iface["mtu"] = current_interface['mtu']
         cur_iface["mode"] = ""
@@ -91,7 +100,7 @@ if __name__ == "__main__":
     """
     fname = "interfaces.json"
     with open(fname,'w') as interface_json_file:
-        subprocess.run(["ip", "-j", "a"], stdout=interface_json_file, stderr=subprocess.STDOUT)
+        subprocess.run(["ip", "-j", "-d", "-p", "a"], stdout=interface_json_file, stderr=subprocess.STDOUT)
     json_data = retrieve_json_for_netbox_fields()
     #debug purpose
     #print(repr(json_data))
