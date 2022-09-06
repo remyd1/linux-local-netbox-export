@@ -40,7 +40,10 @@ def retrieve_json_for_netbox_fields():
                      "rf_channel_width": "", "tx_power": "", \
                      "description": "", "mark_connected": ""}
         cur_iface["name"] = current_interface['ifname']
-        cur_iface["label"] = ""
+        if "label" in current_interface['addr_info']:
+            cur_iface["label"] = current_interface['addr_info']["label"]
+        if "master" in current_interface:
+            cur_iface["parent"] = current_interface["master"]
         if current_interface['operstate'] == "UP":
             cur_iface["enabled"] = "True"
         else:
@@ -59,8 +62,6 @@ def retrieve_json_for_netbox_fields():
                     cur_iface["type"] = "bridge"
                 elif kind == "openvswitch":
                     cur_iface["type"] = "virtual"
-        if "master" in current_interface:
-            cur_iface["parent"] = current_interface["master"]
         cur_iface["mgmt_only"] = "False"
         cur_iface["mtu"] = current_interface['mtu']
         cur_iface["mode"] = ""
