@@ -66,8 +66,8 @@ def retrieve_json_interfaces_from_vm(hostname, ip_addrs, ip_links):
     basic function to retrieve appropriate fields for netbox
     @Return interfaces array of dict
     """
-    interfaces_in_json = json.load(ip_addrs)
-    links_in_json = json.load(ip_links)
+    interfaces_in_json = json.loads(ip_addrs)
+    links_in_json = json.loads(ip_links)
     interfaces = []
     for current_interface in interfaces_in_json:
         # loopback interface
@@ -115,8 +115,8 @@ def retrieve_json_interfaces_from_machine(hostname, ip_addrs, ip_links, bonds_na
     basic function to retrieve appropriate fields for netbox
     @Return interfaces array of dict
     """
-    interfaces_in_json = json.load(ip_addrs)
-    links_in_json = json.load(ip_links)
+    interfaces_in_json = json.loads(ip_addrs)
+    links_in_json = json.loads(ip_links)
     interfaces = []
     for current_interface in interfaces_in_json:
         # loopback interface
