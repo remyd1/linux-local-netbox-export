@@ -48,7 +48,7 @@ def get_ip_addr_json():
     """
     ip_addrs = subprocess.run(["ip", "-j", "-d", "-p", "a"], \
         stdout=subprocess.PIPE)
-    return ip_addrs
+    return ip_addrs.stdout
 
 def get_ip_link_json():
     """
@@ -59,7 +59,7 @@ def get_ip_link_json():
     """
     ip_links = subprocess.run(["ip", "-j", "-d", "-p", "l"], \
         stdout=subprocess.PIPE)
-    return ip_links
+    return ip_links.stdout
 
 def retrieve_json_interfaces_from_vm(hostname, ip_addrs, ip_links):
     """
@@ -93,11 +93,12 @@ def retrieve_json_interfaces_from_vm(hostname, ip_addrs, ip_links):
         cur_iface["mtu"] = current_interface['mtu']
 
         for link in links_in_json:
-            if link["ifname"] == cur_iface["ifname"]:
-                if "linkinfo" in link:
-                    if "info_data" in link["linkinfo"]:
-                        if "id" in link["linkinfo"]["info_data"]:
-                            cur_iface["mode"] = "tagged"
+            if "ifname" in link:
+                if link["ifname"] == current_interface["ifname"]:
+                    if "linkinfo" in link:
+                        if "info_data" in link["linkinfo"]:
+                            if "id" in link["linkinfo"]["info_data"]:
+                                cur_iface["mode"] = "tagged"
 
         if "address" in current_interface:
             cur_iface["mac_address"] = current_interface['address']
@@ -144,7 +145,7 @@ def retrieve_json_interfaces_from_machine(hostname, ip_addrs, ip_links, bonds_na
             if re.search(bond_name, current_interface['ifname']):
                 cur_iface["type"] = "lag"
                 bond_found = True
-        if not bond_found:
+        if not bond_found and current_interface['link_type'] != "none":
             cur_iface["type"] = IFACE_TYPE[current_interface['link_type']]
         if "linkinfo" in current_interface:
             if "info_kind" in current_interface["linkinfo"]:
@@ -157,11 +158,12 @@ def retrieve_json_interfaces_from_machine(hostname, ip_addrs, ip_links, bonds_na
         cur_iface["mtu"] = current_interface['mtu']
 
         for link in links_in_json:
-            if link["ifname"] == cur_iface["ifname"]:
-                if "linkinfo" in link:
-                    if "info_data" in link["linkinfo"]:
-                        if "id" in link["linkinfo"]["info_data"]:
-                            cur_iface["mode"] = "tagged"
+            if "ifname" in link:
+                if link["ifname"] == current_interface["ifname"]:
+                    if "linkinfo" in link:
+                        if "info_data" in link["linkinfo"]:
+                            if "id" in link["linkinfo"]["info_data"]:
+                                cur_iface["mode"] = "tagged"
 
         cur_iface["mode"] = ""
         if "address" in current_interface:
