@@ -10,10 +10,25 @@ In this repository, you will find a basic python script to export list of interf
 
 Just clone this repository. You will need a python3 interpreter.
 
+As there is only one single useful file for now, you can also just download it:
+
+```bash
+cd /tmp && wget https://raw.githubusercontent.com/remyd1/linux-local-netbox-export/main/interfaces.py
+# or, with curl
+curl -sO https://raw.githubusercontent.com/remyd1/linux-local-netbox-export/main/interfaces.py
+```
+
 ## Usage
 
 ```bash
 python3 interfaces.py
+cat interfaces.csv
+```
+
+Or, for a virtual machine :
+
+```bash
+python3 interfaces.py --virtual
 cat interfaces.csv
 ```
 
