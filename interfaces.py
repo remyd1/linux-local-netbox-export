@@ -6,26 +6,98 @@ import json
 import csv
 from os.path import exists
 import re
+import argparse
 
 IFACE_TYPE = {"ether": "1000base-t"}
 
 
-def retrieve_json_for_netbox_fields():
+def get_hostname():
     """
-    basic function to retrieve appropriate fields for netbox
+    Return hostname string from machine
+    using hostname linux command
+    (short version)
     """
     hostname = ""
+    cmd = subprocess.Popen(["hostname", "-s"], stdout=subprocess.PIPE)
+    hostname = cmd.stdout.read().strip().decode("utf-8")
+    return hostname
+
+def get_bonds():
+    """
+    Retrieve bonds from Linux
+    using /sys filesystem
+    Return bonds in an array
+    bonds_name
+    """
     file_exists = exists("/sys/class/net/bonding_masters")
     bonds_name = []
     if file_exists:
-        bond_file = open("/sys/class/net/bonding_masters",'r')
+        bond_file = open("/sys/class/net/bonding_masters", 'r')
         bonds = bond_file.readlines()
         bond_file.close()
         for bond in bonds[0].split(" "):
             bonds_name.append(bond.strip())
-    cmd = subprocess.Popen(["hostname", "-s"], stdout=subprocess.PIPE)
-    hostname = cmd.stdout.read().strip().decode("utf-8")
-    with open("interfaces.json",'r') as interface_json_file:
+    return bonds_name
+
+def get_ip_json(fname):
+    """
+    Output of ip addr command
+    will be store in a JSON file
+    with details
+    Return nothing
+    """
+    with open(fname, 'w') as interface_json_file:
+        subprocess.run(["ip", "-j", "-d", "-p", "a"], \
+            stdout=interface_json_file, stderr=subprocess.STDOUT)
+
+def retrieve_json_interfaces_from_vm(hostname, fname):
+    """
+    basic function to retrieve appropriate fields for netbox
+    @Return interfaces array of dict
+    """
+    with open(fname, 'r') as interface_json_file:
+        interfaces_in_json = json.load(interface_json_file)
+    interfaces = []
+    for current_interface in interfaces_in_json:
+        # loopback interface
+        if current_interface['link_type'] == "loopback":
+            continue
+        # removed "parent" from following dict. It does not seem to work...
+        cur_iface = {"virtual_machine": hostname, "name": "", \
+                     "bridge": "", "parent": "", "enabled": "", \
+                     "mtu": "", "mode": "", "mac_address": "", \
+                     "description": ""}
+        cur_iface["name"] = current_interface['ifname']
+        if current_interface['operstate'] == "UP":
+            cur_iface["enabled"] = "True"
+        else:
+            cur_iface["enabled"] = "False"
+        if "linkinfo" in current_interface:
+            if "info_kind" in current_interface["linkinfo"]:
+                kind = current_interface["linkinfo"]["info_kind"]
+                if kind == "bridge":
+                    if "bridge_id" in current_interface["linkinfo"]["info_data"]:
+                        cur_iface["bridge"] = current_interface["linkinfo"]\
+                            ["info_data"]["bridge_id"]
+        cur_iface["mtu"] = current_interface['mtu']
+        cur_iface["mode"] = ""
+        if "address" in current_interface:
+            cur_iface["mac_address"] = current_interface['address']
+        else:
+            cur_iface["mac_address"] = ""
+        cur_iface["description"] = ""
+        # keeping the IPv4 address
+        #cur_iface["ip"] = current_interface['addr_info'][0]['local'] + "/" + \
+        #    current_interface['addr_info'][0]['prefixlen']
+        interfaces.append(cur_iface)
+    return interfaces
+
+def retrieve_json_interfaces_from_machine(hostname, bonds_name, fname):
+    """
+    basic function to retrieve appropriate fields for netbox
+    @Return interfaces array of dict
+    """
+    with open(fname, 'r') as interface_json_file:
         interfaces_in_json = json.load(interface_json_file)
     interfaces = []
     for current_interface in interfaces_in_json:
@@ -101,12 +173,22 @@ def write_to_csv(json_data):
 
 if __name__ == "__main__":
     """
-    Basic exporter interfaces    
+    Basic exporter interfaces
+    This python code creates a JSON of interfaces
+    and convert it to a CSV readable by netbox import
     """
-    fname = "interfaces.json"
-    with open(fname,'w') as interface_json_file:
-        subprocess.run(["ip", "-j", "-d", "-p", "a"], stdout=interface_json_file, stderr=subprocess.STDOUT)
-    json_data = retrieve_json_for_netbox_fields()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--virtual', action="store_true", help = \
+        "Is it a virtual machine ?")
+    args = parser.parse_args()
+    FNAME = "interfaces.json"
+    hostname = get_hostname()
+    bonds_name = get_bonds()
+    get_ip_json(FNAME)
+    if args.virtual:
+        json_data = retrieve_json_interfaces_from_vm(hostname, FNAME)
+    else:
+        json_data = retrieve_json_interfaces_from_machine(hostname, bonds_name, FNAME)
     #debug purpose
     #print(repr(json_data))
     write_to_csv(json_data)
