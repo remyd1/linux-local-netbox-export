@@ -8,8 +8,8 @@ from os.path import exists
 import re
 import argparse
 
+# interfaces types: https://developers.redhat.com/blog/2018/10/22/introduction-to-linux-interfaces-for-virtual-networking
 IFACE_TYPE = {"ether": "1000base-t"}
-
 
 def get_hostname():
     """
@@ -83,13 +83,13 @@ def retrieve_json_interfaces_from_vm(hostname, ip_addrs, ip_links):
             cur_iface["enabled"] = "True"
         else:
             cur_iface["enabled"] = "False"
-        if "linkinfo" in current_interface:
-            if "info_kind" in current_interface["linkinfo"]:
-                kind = current_interface["linkinfo"]["info_kind"]
-                if kind == "bridge":
-                    if "bridge_id" in current_interface["linkinfo"]["info_data"]:
-                        cur_iface["bridge"] = current_interface["linkinfo"]\
-                            ["info_data"]["bridge_id"]
+        #if "linkinfo" in current_interface:
+        #    if "info_kind" in current_interface["linkinfo"]:
+        #        kind = current_interface["linkinfo"]["info_kind"]
+        #        if kind == "bridge":
+        #            if "bridge_id" in current_interface["linkinfo"]["info_data"]:
+        #                cur_iface["bridge"] = current_interface["linkinfo"]\
+        #                    ["info_data"]["bridge_id"]
         cur_iface["mtu"] = current_interface['mtu']
 
         for link in links_in_json:
