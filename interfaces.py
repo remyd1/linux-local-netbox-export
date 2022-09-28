@@ -8,8 +8,8 @@ from os.path import exists
 import re
 import argparse
 
+# interfaces types: https://developers.redhat.com/blog/2018/10/22/introduction-to-linux-interfaces-for-virtual-networking
 IFACE_TYPE = {"ether": "1000base-t"}
-
 
 def get_hostname():
     """
@@ -39,24 +39,35 @@ def get_bonds():
             bonds_name.append(bond.strip())
     return bonds_name
 
-def get_ip_json(fname):
+def get_ip_addr_json():
     """
     Output of ip addr command
     will be store in a JSON file
     with details
-    Return nothing
+    Return ip_addrs
     """
-    with open(fname, 'w') as interface_json_file:
-        subprocess.run(["ip", "-j", "-d", "-p", "a"], \
-            stdout=interface_json_file, stderr=subprocess.STDOUT)
+    ip_addrs = subprocess.run(["ip", "-j", "-d", "-p", "a"], \
+        stdout=subprocess.PIPE)
+    return ip_addrs.stdout
 
-def retrieve_json_interfaces_from_vm(hostname, fname):
+def get_ip_link_json():
+    """
+    Output of ip link command
+    will be store in a JSON file
+    with details
+    Return ip_links
+    """
+    ip_links = subprocess.run(["ip", "-j", "-d", "-p", "l"], \
+        stdout=subprocess.PIPE)
+    return ip_links.stdout
+
+def retrieve_json_interfaces_from_vm(hostname, ip_addrs, ip_links):
     """
     basic function to retrieve appropriate fields for netbox
     @Return interfaces array of dict
     """
-    with open(fname, 'r') as interface_json_file:
-        interfaces_in_json = json.load(interface_json_file)
+    interfaces_in_json = json.loads(ip_addrs)
+    links_in_json = json.loads(ip_links)
     interfaces = []
     for current_interface in interfaces_in_json:
         # loopback interface
@@ -72,15 +83,23 @@ def retrieve_json_interfaces_from_vm(hostname, fname):
             cur_iface["enabled"] = "True"
         else:
             cur_iface["enabled"] = "False"
-        if "linkinfo" in current_interface:
-            if "info_kind" in current_interface["linkinfo"]:
-                kind = current_interface["linkinfo"]["info_kind"]
-                if kind == "bridge":
-                    if "bridge_id" in current_interface["linkinfo"]["info_data"]:
-                        cur_iface["bridge"] = current_interface["linkinfo"]\
-                            ["info_data"]["bridge_id"]
+        #if "linkinfo" in current_interface:
+        #    if "info_kind" in current_interface["linkinfo"]:
+        #        kind = current_interface["linkinfo"]["info_kind"]
+        #        if kind == "bridge":
+        #            if "bridge_id" in current_interface["linkinfo"]["info_data"]:
+        #                cur_iface["bridge"] = current_interface["linkinfo"]\
+        #                    ["info_data"]["bridge_id"]
         cur_iface["mtu"] = current_interface['mtu']
-        cur_iface["mode"] = ""
+
+        for link in links_in_json:
+            if "ifname" in link:
+                if link["ifname"] == current_interface["ifname"]:
+                    if "linkinfo" in link:
+                        if "info_data" in link["linkinfo"]:
+                            if "id" in link["linkinfo"]["info_data"]:
+                                cur_iface["mode"] = "tagged"
+
         if "address" in current_interface:
             cur_iface["mac_address"] = current_interface['address']
         else:
@@ -92,13 +111,13 @@ def retrieve_json_interfaces_from_vm(hostname, fname):
         interfaces.append(cur_iface)
     return interfaces
 
-def retrieve_json_interfaces_from_machine(hostname, bonds_name, fname):
+def retrieve_json_interfaces_from_machine(hostname, ip_addrs, ip_links, bonds_name):
     """
     basic function to retrieve appropriate fields for netbox
     @Return interfaces array of dict
     """
-    with open(fname, 'r') as interface_json_file:
-        interfaces_in_json = json.load(interface_json_file)
+    interfaces_in_json = json.loads(ip_addrs)
+    links_in_json = json.loads(ip_links)
     interfaces = []
     for current_interface in interfaces_in_json:
         # loopback interface
@@ -126,7 +145,7 @@ def retrieve_json_interfaces_from_machine(hostname, bonds_name, fname):
             if re.search(bond_name, current_interface['ifname']):
                 cur_iface["type"] = "lag"
                 bond_found = True
-        if not bond_found:
+        if not bond_found and current_interface['link_type'] != "none":
             cur_iface["type"] = IFACE_TYPE[current_interface['link_type']]
         if "linkinfo" in current_interface:
             if "info_kind" in current_interface["linkinfo"]:
@@ -137,6 +156,15 @@ def retrieve_json_interfaces_from_machine(hostname, bonds_name, fname):
                     cur_iface["type"] = "virtual"
         cur_iface["mgmt_only"] = "False"
         cur_iface["mtu"] = current_interface['mtu']
+
+        for link in links_in_json:
+            if "ifname" in link:
+                if link["ifname"] == current_interface["ifname"]:
+                    if "linkinfo" in link:
+                        if "info_data" in link["linkinfo"]:
+                            if "id" in link["linkinfo"]["info_data"]:
+                                cur_iface["mode"] = "tagged"
+
         cur_iface["mode"] = ""
         if "address" in current_interface:
             cur_iface["mac_address"] = current_interface['address']
@@ -181,14 +209,15 @@ if __name__ == "__main__":
     parser.add_argument('--virtual', action="store_true", help = \
         "Is it a virtual machine ?")
     args = parser.parse_args()
-    FNAME = "interfaces.json"
     hostname = get_hostname()
     bonds_name = get_bonds()
-    get_ip_json(FNAME)
+    ip_addrs = get_ip_addr_json()
+    ip_links = get_ip_link_json()
     if args.virtual:
-        json_data = retrieve_json_interfaces_from_vm(hostname, FNAME)
+        json_data = retrieve_json_interfaces_from_vm(hostname, ip_addrs, ip_links)
     else:
-        json_data = retrieve_json_interfaces_from_machine(hostname, bonds_name, FNAME)
+        json_data = retrieve_json_interfaces_from_machine(hostname, ip_addrs, \
+            ip_links, bonds_name)
     #debug purpose
     #print(repr(json_data))
     write_to_csv(json_data)
